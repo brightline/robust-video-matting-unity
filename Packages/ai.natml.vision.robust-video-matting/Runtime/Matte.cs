@@ -15,7 +15,7 @@ namespace NatML.Vision {
         /// Each pixel in the map returns a probability of that pixel location being a person (~1.0) or background (~0.0).
         /// </summary>
         public sealed class Matte {
-
+            public Texture2D tempTexture;
             #region --Client API--
             /// <summary>
             /// Map width.
@@ -37,26 +37,24 @@ namespace NatML.Vision {
                 if (!destination)
                     throw new ArgumentNullException(nameof(destination));
                 // Upload texture data
-                var texture = new Texture2D(width, height, TextureFormat.RFloat, false);
-                texture.GetRawTextureData<float>().CopyFrom(data);
-                texture.Apply(false);
+                
+                tempTexture.GetRawTextureData<float>().CopyFrom(data);
+                tempTexture.Apply(false);
                 // Blit
                 renderer = renderer ? renderer : new Material(Shader.Find(@"Hidden/RobustVideoMatting/Blit"));
-                Graphics.Blit(texture, destination, renderer);
-                // Release
-                Texture2D.Destroy(texture);
+                Graphics.Blit(tempTexture, destination, renderer);
             }
             #endregion
 
-
             #region --Operations--
-            private readonly float[] data;
+            public float[] data;
             private static Material renderer;
 
             internal Matte (int width, int height, float[] data) {
                 this.width = width;
                 this.height = height;
                 this.data = data;
+                tempTexture = new Texture2D(width, height, TextureFormat.RFloat, false);
             }
             #endregion
         }

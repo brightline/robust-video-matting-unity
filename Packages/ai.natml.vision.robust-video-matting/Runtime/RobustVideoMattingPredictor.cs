@@ -10,6 +10,7 @@ namespace NatML.Vision {
     using NatML.Features;
     using NatML.Internal;
     using NatML.Types;
+    using UnityEngine;
 
     /// <summary>
     /// Robust Video Matting for human segmentation.
@@ -22,6 +23,41 @@ namespace NatML.Vision {
         /// </summary>
         public const string Tag = "@natsuite/robust-video-matting";
 
+
+        public bool PredictToTexture(ref Texture2D outtex, params MLFeature[] inputs)
+        {
+
+            if (inputs.Length != 1)
+                throw new ArgumentException(@"Robust Video Matting predictor expects a single feature", nameof(inputs));
+            // Check type
+            var input = inputs[0];
+            if (!MLImageType.FromType(input.type))
+                throw new ArgumentException(@"Robust Video Matting predictor expects an an array or image feature", nameof(inputs));
+            // Predict
+            using var inputFeature = (input as IMLEdgeFeature).Create(model.inputs[0]);
+            var outputFeatures = model.Predict(inputFeature, recurrentState[0], recurrentState[1], recurrentState[2], recurrentState[3]);
+            // Update recurrent state
+            for (var i = 0; i < recurrentState.Length; ++i)
+            {
+                recurrentState[i].Dispose();
+                recurrentState[i] = outputFeatures[i + 2];
+            }
+            // Marshal
+            var matte = new MLArrayFeature<float>(outputFeatures[1]);   // (1,1,H,W)
+            if ((outtex.width == matte.shape[3]) && (outtex.height == matte.shape[2]))
+            {
+                matte.CopyTo(outtex);
+            } else
+            {
+                Debug.LogWarning("outtex wrong size, creating new one");
+                outtex = new Texture2D(matte.shape[3], matte.shape[2], TextureFormat.RFloat, false);
+                matte.CopyTo(outtex);
+            }
+            // Release
+            outputFeatures[0].Dispose();
+            outputFeatures[1].Dispose();
+            return true;
+        }
         /// <summary>
         /// Compute a human alpha matte on an image.
         /// </summary>
